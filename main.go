@@ -65,6 +65,21 @@ func runPicker() {
 		os.Exit(1)
 	}
 
+	// Mark entries that have an open workspace
+	if client, err := newHerdrClient(); err == nil {
+		if workspaces, err := client.workspaceList(); err == nil {
+			openLabels := make(map[string]bool, len(workspaces))
+			for _, ws := range workspaces {
+				openLabels[strings.ToLower(ws.Label)] = true
+			}
+			for i := range entries {
+				if openLabels[strings.ToLower(entries[i].Name)] {
+					entries[i].Active = true
+				}
+			}
+		}
+	}
+
 	p := tea.NewProgram(newPickerModel(entries, warnings), tea.WithAltScreen())
 	result, err := p.Run()
 	if err != nil {

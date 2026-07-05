@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -20,6 +21,7 @@ var (
 	descStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	barStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
 	warnStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("3")) // yellow
+	activeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("2")) // green
 )
 
 // pickerModel is the Bubble Tea model for the directory picker.
@@ -63,6 +65,10 @@ func (m *pickerModel) filter() {
 		for _, e := range m.entries {
 			m.filtered = append(m.filtered, scoredEntry{entry: e})
 		}
+		// Pin active (open) workspaces to the top
+		sort.SliceStable(m.filtered, func(i, j int) bool {
+			return m.filtered[i].entry.Active && !m.filtered[j].entry.Active
+		})
 		m.clampCursor()
 		return
 	}
@@ -181,6 +187,9 @@ func (m pickerModel) View() string {
 			b.WriteString(barStyle.Render("▌ "))
 		} else {
 			b.WriteString("  ")
+		}
+		if s.entry.Active {
+			b.WriteString(activeStyle.Render("● "))
 		}
 		b.WriteString(highlightName(s.entry.Name, s.matched, selected))
 		b.WriteString("  ")
