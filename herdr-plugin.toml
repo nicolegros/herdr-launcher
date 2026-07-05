@@ -1,6 +1,6 @@
 id = "nicolegros.herdr-launcher"
 name = "Herdr Launcher"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.7.0"
 description = "A fuzzy directory picker that creates or focuses herdr workspaces. Configure scan paths and launch with a keybinding to quickly jump to any project."
 platforms = ["linux", "macos"]
