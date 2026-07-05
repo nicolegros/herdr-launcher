@@ -122,8 +122,9 @@ func openOrFocusWorkspace(dir string, cfg Config) error {
 	return nil
 }
 
-// runOnCreate fires the on_create command asynchronously via sh -c, with
-// context passed as environment variables.
+// runOnCreate fires the on_create command via sh -c, with context passed as
+// environment variables. Runs synchronously since the picker pane is torn down
+// when this process exits — a detached child would be killed.
 func runOnCreate(command, dir, name, workspaceID string) {
 	cmd := exec.Command("sh", "-c", command)
 	cmd.Env = append(os.Environ(),
@@ -134,5 +135,7 @@ func runOnCreate(command, dir, name, workspaceID string) {
 	cmd.Dir = dir
 	cmd.Stdout = os.Stderr // captured by herdr plugin log
 	cmd.Stderr = os.Stderr
-	_ = cmd.Start() // fire and forget
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "herdr-launcher: on_create failed: %v\n", err)
+	}
 }
