@@ -52,6 +52,7 @@ jobs:
     needs: gate
     if: needs.gate.outputs.version != ''
     runs-on: ubuntu-latest
+    environment: release
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
@@ -59,6 +60,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          token: ${{ secrets.RELEASE_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -111,7 +113,7 @@ jobs:
             --title "${{ steps.tag.outputs.tag }}" \
             --generate-notes
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
   build:
     needs: release
@@ -164,6 +166,7 @@ jobs:
   publish:
     needs: [release, build]
     runs-on: ubuntu-latest
+    environment: release
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -174,11 +177,11 @@ jobs:
         run: |
           find artifacts -name "*.tar.gz" -exec gh release upload ${{ needs.release.outputs.tag }} {} \;
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_REPO: ${{ github.repository }}
 
       - name: Publish release
         run: gh release edit ${{ needs.release.outputs.tag }} --draft=false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_REPO: ${{ github.repository }}
