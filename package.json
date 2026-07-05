@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "devDependencies": {
+    "auto": "^11",
+    "@auto-it/conventional-commits": "^11",
+    "@auto-it/git-tag": "^11"
+  }
+}
