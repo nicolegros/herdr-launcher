@@ -11,6 +11,7 @@ type DirEntry struct {
 	Name       string // directory name (basename)
 	Path       string // full absolute path
 	ParentPath string // the configured scan path it came from (for display)
+	Active     bool   // a workspace with a matching label is currently open
 }
 
 // scanDirectories reads all immediate subdirectories from each configured path,
