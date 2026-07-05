@@ -1,0 +1,184 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'ci skip') && !contains(github.event.head_commit.message, 'skip ci')"
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check version
+        id: version
+        run: |
+          pnpm exec auto version 2>&1 | tee /tmp/auto-output.txt || true
+          VERSION=$(tail -1 /tmp/auto-output.txt)
+          if [[ "$VERSION" == "patch" || "$VERSION" == "minor" || "$VERSION" == "major" ]]; then
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "No valid version bump detected, skipping release"
+            echo "version=" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release:
+    needs: gate
+    if: needs.gate.outputs.version != ''
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Determine new version
+        id: tag
+        run: |
+          BUMP="${{ needs.gate.outputs.version }}"
+          CURRENT=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          CURRENT="${CURRENT#v}"
+          IFS='.' read -r major minor patch <<< "$CURRENT"
+          case "$BUMP" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          NEW="v${major}.${minor}.${patch}"
+          echo "tag=$NEW" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync version into manifest
+        run: |
+          VERSION="${{ steps.tag.outputs.tag }}"
+          VERSION="${VERSION#v}"
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" herdr-plugin.toml
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet herdr-plugin.toml; then
+            git add herdr-plugin.toml
+            git commit -m "Release ${{ steps.tag.outputs.tag }} [skip ci]"
+            git push origin HEAD:main
+          fi
+
+      - name: Create tag
+        run: |
+          git tag ${{ steps.tag.outputs.tag }}
+          git push origin ${{ steps.tag.outputs.tag }}
+
+      - name: Create draft release
+        run: |
+          gh release create ${{ steps.tag.outputs.tag }} \
+            --draft \
+            --title "${{ steps.tag.outputs.tag }}" \
+            --generate-notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            label: linux-amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            label: linux-arm64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            label: darwin-amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            label: darwin-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p dist
+          go build -ldflags="-s -w" -o dist/herdr-launcher .
+          cd dist && tar -czf herdr-launcher_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz herdr-launcher
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: herdr-launcher-${{ matrix.label }}
+          path: dist/*.tar.gz
+
+  publish:
+    needs: [release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Upload assets to release
+        run: |
+          find artifacts -name "*.tar.gz" -exec gh release upload ${{ needs.release.outputs.tag }} {} \;
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+
+      - name: Publish release
+        run: gh release edit ${{ needs.release.outputs.tag }} --draft=false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
