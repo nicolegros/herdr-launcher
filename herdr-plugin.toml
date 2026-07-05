@@ -5,6 +5,9 @@ min_herdr_version = "0.7.0"
 description = "A fuzzy directory picker that creates or focuses herdr workspaces. Configure scan paths and launch with a keybinding to quickly jump to any project."
 platforms = ["linux", "macos"]
 
+[[build]]
+command = ["sh", "scripts/build.sh"]
+
 [[actions]]
 id = "open"
 title = "Herdr Launcher: Open"
