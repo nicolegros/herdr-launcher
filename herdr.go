@@ -72,6 +72,7 @@ func (c *herdrClient) call(method string, params map[string]any, out any) error 
 type workspaceInfo struct {
 	WorkspaceID string `json:"workspace_id"`
 	Label       string `json:"label"`
+	Focused     bool   `json:"focused"`
 }
 
 // workspaceList returns all open workspaces.

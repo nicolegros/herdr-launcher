@@ -23,6 +23,11 @@ id = "switch-previous"
 title = "Herdr Launcher: Switch Previous"
 command = ["./bin/herdr-launcher", "switch-previous"]
 
+[[actions]]
+id = "switch"
+title = "Herdr Launcher: Switch"
+command = ["./bin/herdr-launcher", "switch"]
+
 [[events]]
 on = "workspace.focused"
 command = ["./bin/herdr-launcher", "handle-event"]
@@ -36,3 +41,9 @@ id = "picker"
 title = "Herdr Launcher"
 placement = "overlay"
 command = ["./bin/herdr-launcher", "picker"]
+
+[[panes]]
+id = "switcher"
+title = "Herdr Launcher: Switch"
+placement = "overlay"
+command = ["./bin/herdr-launcher", "switcher-ui"]
