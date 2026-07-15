@@ -21,6 +21,12 @@ func main() {
 		launchOpen()
 	case "picker":
 		runPicker()
+	case "switch-next":
+		switchNext()
+	case "switch-previous":
+		switchPrevious()
+	case "handle-event":
+		handleEvent()
 	default:
 		fmt.Fprintf(os.Stderr, "herdr-launcher: unknown command %q\n", os.Args[1])
 		os.Exit(1)

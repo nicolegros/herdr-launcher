@@ -13,6 +13,24 @@ id = "open"
 title = "Herdr Launcher: Open"
 command = ["./bin/herdr-launcher", "open"]
 
+[[actions]]
+id = "switch-next"
+title = "Herdr Launcher: Switch Next"
+command = ["./bin/herdr-launcher", "switch-next"]
+
+[[actions]]
+id = "switch-previous"
+title = "Herdr Launcher: Switch Previous"
+command = ["./bin/herdr-launcher", "switch-previous"]
+
+[[events]]
+on = "workspace.focused"
+command = ["./bin/herdr-launcher", "handle-event"]
+
+[[events]]
+on = "workspace.closed"
+command = ["./bin/herdr-launcher", "handle-event"]
+
 [[panes]]
 id = "picker"
 title = "Herdr Launcher"
