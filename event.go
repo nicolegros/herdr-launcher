@@ -24,18 +24,20 @@ func handleEvent() {
 	}
 }
 
-// focusedEvent is the relevant subset of the workspace.focused event payload.
-type focusedEvent struct {
+// eventEnvelope wraps the event data herdr passes in HERDR_PLUGIN_EVENT_JSON.
+type eventEnvelope struct {
+	Event string          `json:"event"`
+	Data  json.RawMessage `json:"data"`
+}
+
+// focusedEventData is the workspace_focused event data payload.
+type focusedEventData struct {
 	WorkspaceID string `json:"workspace_id"`
 }
 
 func handleWorkspaceFocused(payload string) {
-	var ev focusedEvent
-	if err := json.Unmarshal([]byte(payload), &ev); err != nil {
-		fmt.Fprintf(os.Stderr, "herdr-launcher: parse focused event: %v\n", err)
-		os.Exit(1)
-	}
-	if ev.WorkspaceID == "" {
+	wsID := extractWorkspaceID(payload)
+	if wsID == "" {
 		fmt.Fprintln(os.Stderr, "herdr-launcher: focused event missing workspace_id")
 		os.Exit(1)
 	}
@@ -44,11 +46,11 @@ func handleWorkspaceFocused(payload string) {
 		// Smart cursor detection: if the focused workspace matches what the
 		// cursor currently points to, this is a switch-initiated focus - leave
 		// the cursor alone.
-		if s.Cursor >= 0 && s.Cursor < len(s.Stack) && s.Stack[s.Cursor] == ev.WorkspaceID {
+		if s.Cursor >= 0 && s.Cursor < len(s.Stack) && s.Stack[s.Cursor] == wsID {
 			return
 		}
 		// Normal navigation: push to front, reset cursor to 0.
-		s.Stack = stackPushFront(s.Stack, ev.WorkspaceID)
+		s.Stack = stackPushFront(s.Stack, wsID)
 		s.Cursor = 0
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "herdr-launcher: update state: %v\n", err)
@@ -56,8 +58,8 @@ func handleWorkspaceFocused(payload string) {
 	}
 }
 
-// closedEvent is the relevant subset of the workspace.closed event payload.
-type closedEvent struct {
+// closedEventData is the workspace_closed event data payload.
+type closedEventData struct {
 	WorkspaceID string `json:"workspace_id"`
 	Workspace   *struct {
 		WorkspaceID string `json:"workspace_id"`
@@ -65,17 +67,7 @@ type closedEvent struct {
 }
 
 func handleWorkspaceClosed(payload string) {
-	var ev closedEvent
-	if err := json.Unmarshal([]byte(payload), &ev); err != nil {
-		fmt.Fprintf(os.Stderr, "herdr-launcher: parse closed event: %v\n", err)
-		os.Exit(1)
-	}
-
-	// workspace.closed may have workspace_id at top level or nested in workspace
-	wsID := ev.WorkspaceID
-	if wsID == "" && ev.Workspace != nil {
-		wsID = ev.Workspace.WorkspaceID
-	}
+	wsID := extractClosedWorkspaceID(payload)
 	if wsID == "" {
 		// Nothing to remove
 		return
@@ -95,4 +87,52 @@ func handleWorkspaceClosed(payload string) {
 		fmt.Fprintf(os.Stderr, "herdr-launcher: update state: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// extractWorkspaceID parses workspace_id from the event payload, handling both
+// the envelope format {"event":"...","data":{...}} and flat format {"workspace_id":"..."}.
+func extractWorkspaceID(payload string) string {
+	// Try envelope format first
+	var env eventEnvelope
+	if err := json.Unmarshal([]byte(payload), &env); err == nil && len(env.Data) > 0 {
+		var data focusedEventData
+		if json.Unmarshal(env.Data, &data) == nil && data.WorkspaceID != "" {
+			return data.WorkspaceID
+		}
+	}
+	// Fall back to flat format
+	var flat focusedEventData
+	if json.Unmarshal([]byte(payload), &flat) == nil {
+		return flat.WorkspaceID
+	}
+	return ""
+}
+
+// extractClosedWorkspaceID parses workspace_id from a workspace.closed event,
+// handling envelope and flat formats, and nested workspace object.
+func extractClosedWorkspaceID(payload string) string {
+	// Try envelope format
+	var env eventEnvelope
+	if err := json.Unmarshal([]byte(payload), &env); err == nil && len(env.Data) > 0 {
+		var data closedEventData
+		if json.Unmarshal(env.Data, &data) == nil {
+			if data.WorkspaceID != "" {
+				return data.WorkspaceID
+			}
+			if data.Workspace != nil {
+				return data.Workspace.WorkspaceID
+			}
+		}
+	}
+	// Fall back to flat format
+	var flat closedEventData
+	if json.Unmarshal([]byte(payload), &flat) == nil {
+		if flat.WorkspaceID != "" {
+			return flat.WorkspaceID
+		}
+		if flat.Workspace != nil {
+			return flat.Workspace.WorkspaceID
+		}
+	}
+	return ""
 }

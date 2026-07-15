@@ -139,8 +139,8 @@ func TestHandleWorkspaceFocused_NormalNavigation(t *testing.T) {
 	// Seed state: stack [w1, w2, w3], cursor 0
 	seedState(t, dir, historyState{Stack: []string{"w1", "w2", "w3"}, Cursor: 0})
 
-	// Focus a new workspace (normal navigation)
-	payload := `{"workspace_id": "w4"}`
+	// Focus a new workspace (normal navigation) - envelope format
+	payload := `{"event":"workspace_focused","data":{"type":"workspace_focused","workspace_id":"w4"}}`
 	handleWorkspaceFocused(payload)
 
 	state, _ := readState()
@@ -160,7 +160,7 @@ func TestHandleWorkspaceFocused_SwitchInitiated(t *testing.T) {
 	seedState(t, dir, historyState{Stack: []string{"w1", "w2", "w3"}, Cursor: 1})
 
 	// Focus w2 (matches cursor position - switch-initiated)
-	payload := `{"workspace_id": "w2"}`
+	payload := `{"event":"workspace_focused","data":{"type":"workspace_focused","workspace_id":"w2"}}`
 	handleWorkspaceFocused(payload)
 
 	state, _ := readState()
@@ -181,7 +181,7 @@ func TestHandleWorkspaceFocused_ExistingMovesToFront(t *testing.T) {
 	seedState(t, dir, historyState{Stack: []string{"w1", "w2", "w3"}, Cursor: 0})
 
 	// Focus w3 (normal nav - not at cursor position)
-	payload := `{"workspace_id": "w3"}`
+	payload := `{"event":"workspace_focused","data":{"type":"workspace_focused","workspace_id":"w3"}}`
 	handleWorkspaceFocused(payload)
 
 	state, _ := readState()
@@ -204,7 +204,7 @@ func TestHandleWorkspaceClosed_RemovesAndAdjustsCursor(t *testing.T) {
 	seedState(t, dir, historyState{Stack: []string{"w1", "w2", "w3"}, Cursor: 2})
 
 	// Close w2 (index 1, cursor was at 2)
-	payload := `{"workspace_id": "w2"}`
+	payload := `{"event":"workspace_closed","data":{"type":"workspace_closed","workspace_id":"w2"}}`
 	handleWorkspaceClosed(payload)
 
 	state, _ := readState()
@@ -227,7 +227,7 @@ func TestHandleWorkspaceClosed_CursorBeforeRemoved(t *testing.T) {
 	seedState(t, dir, historyState{Stack: []string{"w1", "w2", "w3"}, Cursor: 0})
 
 	// Close w3 (index 2, cursor at 0 - before removed)
-	payload := `{"workspace_id": "w3"}`
+	payload := `{"event":"workspace_closed","data":{"type":"workspace_closed","workspace_id":"w3"}}`
 	handleWorkspaceClosed(payload)
 
 	state, _ := readState()
@@ -242,7 +242,7 @@ func TestHandleWorkspaceClosed_NotInStack(t *testing.T) {
 
 	seedState(t, dir, historyState{Stack: []string{"w1", "w2"}, Cursor: 0})
 
-	payload := `{"workspace_id": "w99"}`
+	payload := `{"event":"workspace_closed","data":{"type":"workspace_closed","workspace_id":"w99"}}`
 	handleWorkspaceClosed(payload)
 
 	state, _ := readState()
